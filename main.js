@@ -18,7 +18,6 @@ const healthCap = 250
 const velocityDamageConst = 10
 let camera = { x: 100, y: 100, zoom: 1 };
 var entities = []
-var showHealthBar = true
 
 const keys = {}
 window.addEventListener("keydown", e => {
@@ -31,8 +30,8 @@ window.addEventListener("keydown", e => {
 
 // UTILITIES //
 
-function makeDamageNumber(amount, x, y) {
-  const isCritical = amount > player.maxHealth * criticalHitPurcentage;
+function makeDamageNumber(amount, x, y, entity) {
+  const isCritical = amount > entity.maxHealth * criticalHitPurcentage;
   const color = isCritical ? "red" : "orange";
 
   const velocity = {
@@ -176,6 +175,16 @@ function screenToWorld(x, y) {
     ctx.strokeStyle = '#000';
     ctx.strokeRect(x, y, width, height);
   }
+  function drawHealthBarForEntities(x, y, health, maxHealth, radius) {
+    const barWidth = radius * 2;          // largeur proportionnelle à la taille du monstre
+    const barHeight = 6;
+    const ratio = Math.max(0, Math.min(1, health / maxHealth));
+
+    ctx.fillStyle = 'black';
+    ctx.fillRect(x - barWidth/2, y + radius + 12, barWidth, barHeight); // en-dessous du cercle
+    ctx.fillStyle = 'limegreen';
+    ctx.fillRect(x - barWidth/2, y + radius + 12, barWidth * ratio, barHeight);
+}
 
  // ENTITY //
 
@@ -203,18 +212,35 @@ class Entity {
         this.color = "#ffffff"
         this.strokeColor = "#222"
         this.team = -100//-100 is entity team
+        this.facingType = ""
+        this.facing = 0
+        this.isPlayer = false
+        this.showHealthBar = true
+        this.alpha = 1
         entities.push(this)
     }
     draw() {
         const screen = worldToScreen(this.x, this.y);
         const radius = this.radius * camera.zoom;
-
+        ctx.save();
+        if (this.showHealthBar) {
+          drawHealthBarForEntities(screen.x, screen.y, this.health, this.maxHealth, this.radius)
+        }
         ctx.beginPath();
         ctx.arc(screen.x, screen.y, radius, 0, Math.PI * 2);
         ctx.fillStyle = this.color
+        if (this.alpha !=1) {
+          ctx.globalAlpha = this.alpha
+        }
+        else if (this.isPlayer) {
+          ctx.globalAlpha = player.health/player.maxHealth
+        } else {
+          ctx.globalAlpha = this.health/this.maxHealth*2//less opacity shift
+        }
         ctx.fill();
         ctx.strokeStyle = this.strokeColor;
         ctx.stroke();
+        ctx.restore();
     }
     applyInput() {
       if (this.input.up) this.vy -= this.acceleration;
@@ -229,11 +255,21 @@ class Entity {
   takeDamage(amount) { 
     this.health -= amount; 
     if (this.health < 0) this.health = 0; 
-    makeDamageNumber(amount, worldToScreen(this.x, this.y).x, worldToScreen(this.x, this.y).y);
+    makeDamageNumber(amount, worldToScreen(this.x, this.y).x, worldToScreen(this.x, this.y).y, this);
   }
   regen() { if (this.regeneration != 0 && !this.isDead()) { if (this.regeneration + this.health >= this.maxHealth) this.health = this.maxHealth; else this.health += this.regeneration; } }
   isDead() {
       return this.health <= 0;
+  }
+  updateFacing() {
+    switch (this.facingType) {
+      case "withMotion":
+        if (Math.abs(this.vx) != 0 || Math.abs(this.vy) != 0) {
+          this.facing = Math.atan2(this.vy, this.vx);
+      }
+      break;
+      default:
+    }
   }
 }
 
@@ -243,9 +279,14 @@ player = new Entity(0, 0)
 player.color = "#0069FF"
 player.team = 1
 player.fov = 1
+player.facingType = "withMotion"
+player.isPlayer = true
+player.showHealthBar = true
+
+//
 
 function handleCollision(e1, e2) {
-  //if (e1.isDead() || e2.isDead()) return;
+  if (e1.isDead() || e2.isDead()) return;
   const dx = e2.x - e1.x, dy = e2.y - e1.y; var dist = Math.sqrt(dx*dx + dy*dy); if (dist == 0) dist = 1;
   const minDist = e1.radius + e2.radius;
   if (dist < minDist) {
@@ -282,18 +323,18 @@ function handleCollision(e1, e2) {
 }
 
 function draw() {
-    if (player.isDead()) {
-      drawText("Game Over", window.innerWidth / 2, window.innerHeight / 2, "red", "72px 'Arial Black'");
-    }
     const spacing = drawGrid();//also calls drawGrid() so ye, spacing can be used for later things
-    updateDamageNumbers()
-    if (showHealthBar == true) {
-      drawText(Math.round(player.health/* * 100*/)/* / 100*/, (Math.min(player.maxHealth, healthCap) / 2) + 10, 40, "white")
-      drawHealthBar(player.health, player.maxHealth, ctx, 10, 50, Math.min(player.maxHealth, healthCap)/* plus tu as de vie max plus la barre est grande */, 10)
-    }
     entities.forEach(entity => {
         entity.draw()
     })
+    updateDamageNumbers()
+    if (player.isDead()) {
+      drawText("Game Over", window.innerWidth / 2, window.innerHeight / 2, "red", "72px 'Arial Black'");
+    }
+    if (player.showHealthBar == true) {
+      drawText(Math.round(player.health/* * 100*/)/* / 100*/, (Math.min(player.maxHealth, healthCap) / 2) + 10, 40, "white")
+      drawHealthBar(player.health, player.maxHealth, ctx, 10, 50, Math.min(player.maxHealth, healthCap)/* plus tu as de vie max plus la barre est grande */, 10)
+    }
 }
 function gameLoop() {
     if (keys['ArrowUp']) {player.input.up = true} else {player.input.up = false};
@@ -312,6 +353,7 @@ function gameLoop() {
       entity.applyFriction(); 
       entity.updatePosition();
       entity.regen();
+      entity.updateFacing();
     })
     for (let i = 0; i < entities.length; i++) {
       for (let j = i + 1; j < entities.length; j++) handleCollision(entities[i], entities[j]);
@@ -346,7 +388,9 @@ function test() {
   test2.radius = 100
   test2.mass = 100
   test2.color = "#654321"
-  test2.damage = 1
+  test2.damage = 2
+  test2.maxHealth = 5000
+  test2.health = 5000
 
   test3 = new Entity(100, -100)
   test3.radius = 10
