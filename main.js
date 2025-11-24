@@ -316,9 +316,17 @@ function gameLoop() {
     for (let i = 0; i < entities.length; i++) {
       for (let j = i + 1; j < entities.length; j++) handleCollision(entities[i], entities[j]);
   }
+  //remove dead
+
+  for (let i = entities.length - 1; i >= 0; i--) {
+    if (entities[i].isDead()) {
+      entities.splice(i, 1);
+    }
+  }
 
 
-    requestAnimationFrame(gameLoop);
+
+  requestAnimationFrame(gameLoop);//loop loop loop loop loop
 }
 gameLoop()
 
