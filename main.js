@@ -326,7 +326,7 @@ function handleCollision(e1, e2) {
       e2.x += nx * overlap * (e1.mass / totalMass); e2.y += ny * overlap * (e1.mass / totalMass);
       const relVx = e2.vx - e1.vx, relVy = e2.vy - e1.vy; const relDot = relVx * nx + relVy * ny;
       if (relDot < 0) {
-          const bounce = Math.min(e1.bounciness, e2.bounciness);//Math.min()?
+          const bounce = (e1.bounciness + e2.bounciness) / 2//Math.min(e1.bounciness, e2.bounciness);//Math.min()?
           const impulse = (2 * relDot) / totalMass;
           e1.vx += impulse * e2.mass * nx * bounce * kbmult;
           e1.vy += impulse * e2.mass * ny * bounce * kbmult;
@@ -348,20 +348,29 @@ function handleCollision(e1, e2) {
       
   }
 }
-function handleMouseInput(player) {
-    if (player.input.lmb) {
-      if (!player.isDead()) {
-        const newEntity = new Entity(player.x, player.y);
-        newEntity.facing = player.facing
+function shoot(entity) {
+      if (!entity.isDead()) {
+        // test //
+        const newEntity = new Entity(entity.x, entity.y);
+        newEntity.facing = entity.facing
         console.log(newEntity.facing)
         newEntity.team = 1
         newEntity.collidesWithTeam = false
-        newEntity.vx = Math.cos(newEntity.facing) * 5;
-        newEntity.vy = Math.sin(newEntity.facing) * 5;
-        newEntity.friction = 1
-        newEntity.regeneration = -1
+        newEntity.vx = (Math.cos(newEntity.facing) * 5)// + (player.vx * 0.4);
+        newEntity.vy = (Math.sin(newEntity.facing) * 5)// + (player.vy * 0.4);
+        newEntity.friction = 0.995
+        newEntity.regeneration = -0.5
+        newEntity.radius = 10
+        newEntity.damage = 1
+        newEntity.showHealthBar = false
+        newEntity.mass = 2
         entities.push(newEntity);
+        // //
     }
+}
+function handleMouseInput(player) {
+    if (player.input.lmb) {
+      shoot(player)
   }
 }
 
@@ -439,7 +448,7 @@ function test() {
   test2.maxHealth = 1500
   test2.health = 1500
   test2.regeneration = 0.5
-  test2.bounciness = 10
+  test2.bounciness = 0.7
 
   test3 = new Entity(100, -100)
   test3.radius = 10
