@@ -223,7 +223,7 @@ class Entity {
         const screen = worldToScreen(this.x, this.y);
         const radius = this.radius * camera.zoom;
         ctx.save();
-        if (this.showHealthBar) {
+        if (this.showHealthBar && !this.isPlayer) {
           drawHealthBarForEntities(screen.x, screen.y, this.health, this.maxHealth, this.radius)
         }
         ctx.beginPath();
@@ -235,7 +235,7 @@ class Entity {
         else if (this.isPlayer) {
           ctx.globalAlpha = player.health/player.maxHealth
         } else {
-          ctx.globalAlpha = this.health/this.maxHealth*2//less opacity shift
+          ctx.globalAlpha = this.health + (this.maxHealth/2) /this.maxHealth//less opacity shift
         }
         ctx.fill();
         ctx.strokeStyle = this.strokeColor;
@@ -268,6 +268,9 @@ class Entity {
           this.facing = Math.atan2(this.vy, this.vx);
       }
       break;
+      case "toTarget":
+
+      break;
       default:
     }
   }
@@ -279,7 +282,7 @@ player = new Entity(0, 0)
 player.color = "#0069FF"
 player.team = 1
 player.fov = 1
-player.facingType = "withMotion"
+player.facingType = "toTarget"
 player.isPlayer = true
 player.showHealthBar = true
 
@@ -383,14 +386,17 @@ function test() {
   test1.vx = -50
   test1.vy = -50
   test1.damage = 75
+  test1.color = "#810372"
+  test1.health = 90
+  test1.regeneration = -0.1
 
   test2 = new Entity(-100, -100)
   test2.radius = 100
   test2.mass = 100
   test2.color = "#654321"
   test2.damage = 2
-  test2.maxHealth = 5000
-  test2.health = 5000
+  test2.maxHealth = 1000
+  test2.health = 1000
 
   test3 = new Entity(100, -100)
   test3.radius = 10
