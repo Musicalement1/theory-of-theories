@@ -11,6 +11,7 @@ function resizeCanvas() {
 window.addEventListener("resize", resizeCanvas);
 
 // CONSTANTS //
+let mouse = { x: 0, y: 0 };
 const damageNumbers = [];
 const criticalHitPurcentage = 0.6
 const kbmult = 2
@@ -26,6 +27,21 @@ window.addEventListener("keydown", e => {
   window.addEventListener("keyup", e => {
     keys[e.key] = false;
 })
+
+document.addEventListener('mousemove', function(event) {
+  mouse.x = event.clientX;
+  mouse.y = event.clientY;
+});
+
+document.addEventListener('mousedown', function(event) {
+  if (event.button === 0) player.input.lmb = true;
+  if (event.button === 2) player.input.rmb = true;
+});
+
+document.addEventListener('mouseup', function(event) {
+  if (event.button === 0) player.input.lmb = false;
+  if (event.button === 2) player.input.rmb = false;
+});
 
 
 // UTILITIES //
@@ -106,6 +122,15 @@ function screenToWorld(x, y) {
       y: (y - camera.y) * camera.zoom + canvas.height / 2
     };
   }
+
+function updatePlayerFacing(player, mouseX, mouseY) {
+    const playerX = player.x;
+    const playerY = player.y;
+    const deltaX = mouseX - playerX;
+    const deltaY = mouseY - playerY;
+    const angle = Math.atan2(deltaY, deltaX);
+    player.facing = angle;
+}
 
   function drawGrid() {
     const baseSpacing = 100;
@@ -217,6 +242,7 @@ class Entity {
         this.isPlayer = false
         this.showHealthBar = true
         this.alpha = 1
+        this.collidesWithTeam = true
         entities.push(this)
     }
     draw() {
@@ -268,8 +294,8 @@ class Entity {
           this.facing = Math.atan2(this.vy, this.vx);
       }
       break;
-      case "toTarget":
-
+      case "player":
+        updatePlayerFacing(player, screenToWorld(mouse.x, mouse.y).x, screenToWorld(mouse.x, mouse.y).y)
       break;
       default:
     }
@@ -282,7 +308,7 @@ player = new Entity(0, 0)
 player.color = "#0069FF"
 player.team = 1
 player.fov = 1
-player.facingType = "toTarget"
+player.facingType = "player"
 player.isPlayer = true
 player.showHealthBar = true
 
@@ -290,6 +316,7 @@ player.showHealthBar = true
 
 function handleCollision(e1, e2) {
   if (e1.isDead() || e2.isDead()) return;
+  if (e1.team == e2.team && (e1.collidesWithTeam == false || e2.collidesWithTeam == false)) return;
   const dx = e2.x - e1.x, dy = e2.y - e1.y; var dist = Math.sqrt(dx*dx + dy*dy); if (dist == 0) dist = 1;
   const minDist = e1.radius + e2.radius;
   if (dist < minDist) {
@@ -299,7 +326,7 @@ function handleCollision(e1, e2) {
       e2.x += nx * overlap * (e1.mass / totalMass); e2.y += ny * overlap * (e1.mass / totalMass);
       const relVx = e2.vx - e1.vx, relVy = e2.vy - e1.vy; const relDot = relVx * nx + relVy * ny;
       if (relDot < 0) {
-          const bounce = Math.min(e1.bounciness, e2.bounciness);
+          const bounce = Math.min(e1.bounciness, e2.bounciness);//Math.min()?
           const impulse = (2 * relDot) / totalMass;
           e1.vx += impulse * e2.mass * nx * bounce * kbmult;
           e1.vy += impulse * e2.mass * ny * bounce * kbmult;
@@ -310,18 +337,31 @@ function handleCollision(e1, e2) {
         //Calculate the relative velocity between e1 and e2
         const relVx = e2.vx - e1.vx;
         const relVy = e2.vy - e1.vy;
-        
         //Calculate the magnitude of the relative velocity
         const relativeVelocity = Math.sqrt(relVx * relVx + relVy * relVy);
-      
-        const damageMultiplier = relativeVelocity / velocityDamageConst;
-    
+        const damageMultiplier = Math.max(Math.min(relativeVelocity / velocityDamageConst, 1.5), 0.5);
         // Apply damage with velocity scaling
         e1.takeDamage(Math.round(e2.damage * damageMultiplier));
         e2.takeDamage(Math.round(e1.damage * damageMultiplier));
     }
     
       
+  }
+}
+function handleMouseInput(player) {
+    if (player.input.lmb) {
+      if (!player.isDead()) {
+        const newEntity = new Entity(player.x, player.y);
+        newEntity.facing = player.facing
+        console.log(newEntity.facing)
+        newEntity.team = 1
+        newEntity.collidesWithTeam = false
+        newEntity.vx = Math.cos(newEntity.facing) * 5;
+        newEntity.vy = Math.sin(newEntity.facing) * 5;
+        newEntity.friction = 1
+        newEntity.regeneration = -1
+        entities.push(newEntity);
+    }
   }
 }
 
@@ -340,6 +380,7 @@ function draw() {
     }
 }
 function gameLoop() {
+    //if (player.input.lmb)
     if (keys['ArrowUp']) {player.input.up = true} else {player.input.up = false};
     if (keys['ArrowDown']) {player.input.down = true} else {player.input.down = false};
     if (keys['ArrowLeft']) {player.input.left = true} else {player.input.left = false};
@@ -350,7 +391,7 @@ function gameLoop() {
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     draw();
-
+    handleMouseInput(player);
     entities.forEach(entity => {
       entity.applyInput(); 
       entity.applyFriction(); 
@@ -395,8 +436,10 @@ function test() {
   test2.mass = 100
   test2.color = "#654321"
   test2.damage = 2
-  test2.maxHealth = 1000
-  test2.health = 1000
+  test2.maxHealth = 1500
+  test2.health = 1500
+  test2.regeneration = 0.5
+  test2.bounciness = 10
 
   test3 = new Entity(100, -100)
   test3.radius = 10
