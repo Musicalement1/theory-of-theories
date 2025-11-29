@@ -22,6 +22,7 @@ var entities = []
 
 const keys = {}
 window.addEventListener("keydown", e => {
+  if (e.key == "'") {e.preventDefault()}
     keys[e.key] = true;
 })  
   window.addEventListener("keyup", e => {
@@ -243,6 +244,7 @@ class Entity {
         this.showHealthBar = true
         this.alpha = 1
         this.collidesWithTeam = true
+        this.handItem = 0
         entities.push(this)
     }
     draw() {
@@ -351,9 +353,8 @@ function handleCollision(e1, e2) {
 function shoot(entity) {
       if (!entity.isDead()) {
         // test //
-        const newEntity = new Entity(entity.x, entity.y);
+        const newEntity = new Entity(entity.x + (Math.cos(entity.facing) * entity.radius), entity.y + (Math.sin(entity.facing) * entity.radius));
         newEntity.facing = entity.facing
-        console.log(newEntity.facing)
         newEntity.team = 1
         newEntity.collidesWithTeam = false
         newEntity.vx = (Math.cos(newEntity.facing) * 5)// + (player.vx * 0.4);
@@ -374,6 +375,82 @@ function handleMouseInput(player) {
   }
 }
 
+function drawLoadout(handItem) {
+  const numItems = 10;
+  const barHeight = canvas.height * 0.05;
+  const itemSize = (canvas.width * 0.4) / numItems;
+  const spacing = (canvas.width * 0.05) / (numItems - 1);
+
+  for (let i = 0; i < numItems; i++) {
+      const x = (canvas.width - (itemSize * numItems + spacing * (numItems - 1))) / 2 + i * (itemSize + spacing);
+      const y = (canvas.height - barHeight) / 50;
+
+      ctx.fillStyle = '#2a2a2a';
+      ctx.fillRect(x, y, itemSize, itemSize);
+
+      if (i === handItem) {
+          ctx.strokeStyle = '#FF4500';
+          ctx.lineWidth = 4;
+          ctx.strokeRect(x, y, itemSize, itemSize);
+      }
+  }
+}
+
+
+function tranformKeyIntoInt(key) {
+  switch (key) {// à faire aussi pour qwerty
+    case "&":
+      return 1
+    case "é":
+      return 2
+    case '"':
+      return 3
+    case "'":
+      return 4
+    case "(":
+      return 5
+    case "§":
+      return 6
+    case "è":
+      return 7
+    case "!":
+      return 8
+    case "ç":
+      return 9
+    case "à":
+      return 0
+    default:
+      return 0
+  }
+}
+function transformIntIntoKey(int) {
+  switch (int) {
+    case 1:
+      return "&";
+    case 2:
+      return "é";
+    case 3:
+      return "\"";
+    case 4:
+      return "'";
+    case 5:
+      return "(";
+    case 6:
+      return "§";
+    case 7:
+      return "è";
+    case 8:
+      return "!";
+    case 9:
+      return "ç";
+    case 0:
+      return "à";
+    default:
+      return 0;
+  }
+}
+
+
 function draw() {
     const spacing = drawGrid();//also calls drawGrid() so ye, spacing can be used for later things
     entities.forEach(entity => {
@@ -387,13 +464,31 @@ function draw() {
       drawText(Math.round(player.health/* * 100*/)/* / 100*/, (Math.min(player.maxHealth, healthCap) / 2) + 10, 40, "white")
       drawHealthBar(player.health, player.maxHealth, ctx, 10, 50, Math.min(player.maxHealth, healthCap)/* plus tu as de vie max plus la barre est grande */, 10)
     }
+    drawLoadout(player.handItem)
 }
+
+
 function gameLoop() {
     //if (player.input.lmb)
     if (keys['ArrowUp']) {player.input.up = true} else {player.input.up = false};
     if (keys['ArrowDown']) {player.input.down = true} else {player.input.down = false};
     if (keys['ArrowLeft']) {player.input.left = true} else {player.input.left = false};
     if (keys['ArrowRight']) {player.input.right = true} else {player.input.right = false};
+    for (i = 0; i<10; i++) {
+        index = transformIntIntoKey(i)
+        if (keys[index]) {
+          player.input[i] = true
+          if (i == 0) {
+            player.handItem = 9
+          } else {
+          player.handItem = i-1
+          }
+        } else {
+          player.input[i] = false
+        }
+    }
+
+
     camera.x = player.x
     camera.y = player.y
     camera.zoom = 1/player.fov
