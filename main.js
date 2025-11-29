@@ -19,6 +19,7 @@ const healthCap = 250
 const velocityDamageConst = 10
 let camera = { x: 100, y: 100, zoom: 1 };
 var entities = []
+const hotbarItems = 10
 
 const keys = {}
 window.addEventListener("keydown", e => {
@@ -376,7 +377,7 @@ function handleMouseInput(player) {
 }
 
 function drawLoadout(handItem) {
-  const numItems = 10;
+  const numItems = hotbarItems;
   const barHeight = canvas.height * 0.05;
   const itemSize = (canvas.width * 0.4) / numItems;
   const spacing = (canvas.width * 0.05) / (numItems - 1);
@@ -474,12 +475,12 @@ function gameLoop() {
     if (keys['ArrowDown']) {player.input.down = true} else {player.input.down = false};
     if (keys['ArrowLeft']) {player.input.left = true} else {player.input.left = false};
     if (keys['ArrowRight']) {player.input.right = true} else {player.input.right = false};
-    for (i = 0; i<10; i++) {
+    for (i = 0; i<hotbarItems; i++) {
         index = transformIntIntoKey(i)
         if (keys[index]) {
           player.input[i] = true
           if (i == 0) {
-            player.handItem = 9
+            player.handItem = hotbarItems-1
           } else {
           player.handItem = i-1
           }
