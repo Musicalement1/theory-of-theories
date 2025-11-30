@@ -44,10 +44,23 @@ document.addEventListener('mouseup', function(event) {
   if (event.button === 0) player.input.lmb = false;
   if (event.button === 2) player.input.rmb = false;
 });
+var scrollTimer = 0
+document.addEventListener("wheel", (event) => {
+  player.input.scroll = event.wheelDeltaY
+  if (player.input.scroll <= 6 && player.input.scroll >= -6) {//stop mouse
+    player.input.scroll = 0
+  }
+})
 
 
 // UTILITIES //
-
+function negativeCheck(number) {
+  if (number >= 0) {
+    return 1
+  } else {
+    return -1
+  }
+}
 function makeDamageNumber(amount, x, y, entity) {
   const isCritical = amount > entity.maxHealth * criticalHitPurcentage;
   const color = isCritical ? "red" : "orange";
@@ -111,6 +124,12 @@ function drawText(texte, x, y, couleur, police = "20px Arial", alpha = 1) {
   ctx.fillText(texte, x, y);
   ctx.restore();
 }
+
+
+function distance(e1, e2) {
+  return Math.sqrt(((e2.x-e1.x)**2) + ((e2.y-e1.y)**2))
+}
+
 function screenToWorld(x, y) {
     return {
       x: (x - canvas.width / 2) / camera.zoom + camera.x,
@@ -180,6 +199,14 @@ function updatePlayerFacing(player, mouseX, mouseY) {
   
     return spacing;
   }
+  blendColors = (colorA, colorB, amount) => {
+    const [rA, gA, bA] = colorA.match(/\w\w/g).map((c) => parseInt(c, 16));
+    const [rB, gB, bB] = colorB.match(/\w\w/g).map((c) => parseInt(c, 16));
+    const r = Math.round(rA + (rB - rA) * amount).toString(16).padStart(2, '0');
+    const g = Math.round(gA + (gB - gA) * amount).toString(16).padStart(2, '0');
+    const b = Math.round(bA + (bB - bA) * amount).toString(16).padStart(2, '0');
+    return '#' + r + g + b;
+}
   function blendColorsHealth(healthRatio) {
     // Interpolation entre rouge et vert
     const r = Math.floor(255 * (1 - healthRatio));
@@ -229,7 +256,7 @@ class Entity {
         this.type = "entity"
         this.mass = 1
         this.bounciness = 0.7
-        this.label = ""
+        this.label = "Label Placeholder"
         this.health = 100
         this.maxHealth = 100
         this.damage = 20
@@ -246,6 +273,7 @@ class Entity {
         this.alpha = 1
         this.collidesWithTeam = true
         this.handItem = 0
+        this.isProjectile = false
         entities.push(this)
     }
     draw() {
@@ -270,6 +298,13 @@ class Entity {
         ctx.strokeStyle = this.strokeColor;
         ctx.stroke();
         ctx.restore();
+        //mouse on entities
+        if (distance(screen, mouse) <= radius && !this.isPlayer &!this.isProjectile) {
+          ctx.save();
+          drawText(this.label, screen.x, screen.y - (radius * 1.5), blendColors(this.color, "#ffffff", 0.5), `${Math.min(radius, 30)}px Arial`)// name, a lil offset
+          drawText(Math.round(this.health) + "/" + Math.round(this.maxHealth), screen.x, screen.y - (radius * -1.35), blendColors(this.color, "#ffffff", 0.5), `${Math.min(radius, 30)}px Arial`)// hp
+          ctx.restore();
+        }
     }
     applyInput() {
       if (this.input.up) this.vy -= this.acceleration;
@@ -365,6 +400,7 @@ function shoot(entity) {
         newEntity.radius = 10
         newEntity.damage = 1
         newEntity.showHealthBar = false
+        newEntity.isProjectile = true
         newEntity.mass = 2
         entities.push(newEntity);
         // //
@@ -475,6 +511,15 @@ function gameLoop() {
     if (keys['ArrowDown']) {player.input.down = true} else {player.input.down = false};
     if (keys['ArrowLeft']) {player.input.left = true} else {player.input.left = false};
     if (keys['ArrowRight']) {player.input.right = true} else {player.input.right = false};
+    if (player.input.scroll != undefined) {scrollTimer += Math.abs(player.input.scroll)};
+    if (scrollTimer >= 100) {
+      scrollTimer = 0
+      player.handItem += negativeCheck(player.input.scroll)
+      if (player.handItem >= hotbarItems) {player.handItem = 0}
+      if (player.handItem < 0) {player.handItem = hotbarItems-1}
+    }
+
+
     for (i = 0; i<hotbarItems; i++) {
         index = transformIntIntoKey(i)
         if (keys[index]) {
