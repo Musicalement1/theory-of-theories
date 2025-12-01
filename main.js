@@ -1,3 +1,5 @@
+import {defEntities, defItems} from './definitions.js'
+
 // CANVAS STUFF //
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
@@ -45,7 +47,9 @@ document.addEventListener('mouseup', function(event) {
   if (event.button === 2) player.input.rmb = false;
 });
 var scrollTimer = 0
+var didntTouchMouseFor = 0
 document.addEventListener("wheel", (event) => {
+  didntTouchMouseFor = 0
   player.input.scroll = event.wheelDeltaY
   if (player.input.scroll <= 6 && player.input.scroll >= -6) {//stop mouse
     player.input.scroll = 0
@@ -54,11 +58,22 @@ document.addEventListener("wheel", (event) => {
 
 
 // UTILITIES //
-function negativeCheck(number) {
-  if (number >= 0) {
-    return 1
+function isPositive(number) {
+  if (number > 0) {
+    return true
+  } else if (number != 0) {
+    return false
   } else {
+    return 0
+  }
+}
+function positiveCheck(number) {
+  if (number > 0) {
+    return 1
+  } else if (number != 0) {
     return -1
+  } else {
+    return 0
   }
 }
 function makeDamageNumber(amount, x, y, entity) {
@@ -199,7 +214,7 @@ function updatePlayerFacing(player, mouseX, mouseY) {
   
     return spacing;
   }
-  blendColors = (colorA, colorB, amount) => {
+  function blendColors (colorA, colorB, amount) {
     const [rA, gA, bA] = colorA.match(/\w\w/g).map((c) => parseInt(c, 16));
     const [rB, gB, bB] = colorB.match(/\w\w/g).map((c) => parseInt(c, 16));
     const r = Math.round(rA + (rB - rA) * amount).toString(16).padStart(2, '0');
@@ -236,7 +251,7 @@ function updatePlayerFacing(player, mouseX, mouseY) {
 
     ctx.fillStyle = 'black';
     ctx.fillRect(x - barWidth/2, y + radius + 12, barWidth, barHeight); // en-dessous du cercle
-    ctx.fillStyle = 'limegreen';
+    ctx.fillStyle = blendColorsHealth(health/maxHealth);
     ctx.fillRect(x - barWidth/2, y + radius + 12, barWidth * ratio, barHeight);
 }
 
@@ -244,7 +259,8 @@ function updatePlayerFacing(player, mouseX, mouseY) {
 
  
 class Entity {
-    constructor(x, y) {
+    constructor(x, y/*, entityId = "ball"*/) {
+        //this.entityId = entityId
         this.x = x
         this.y = y
         this.vx = 0
@@ -256,10 +272,13 @@ class Entity {
         this.type = "entity"
         this.mass = 1
         this.bounciness = 0.7
-        this.label = "Label Placeholder"
-        this.health = 100
+        this.entry = "000"
+        this.label = "Entity " + this.entry
         this.maxHealth = 100
+        this.health = this.maxHealth
         this.damage = 20
+        //this.penetration = 0
+        //this.hetero = 10//penetration resistance
         this.regeneration = 0.1,
         this.friction = 0.85
         this.input = {}
@@ -272,9 +291,53 @@ class Entity {
         this.showHealthBar = true
         this.alpha = 1
         this.collidesWithTeam = true
-        this.handItem = 0
+        this.onlyDamageOnCollide = false
+        this.handItemId = 0
         this.isProjectile = false
+        this.ai = "none"
+        this.iFrames = 0
+        this.iFrameLength = 2
+        this.iFrameFactor = 1
+        this.inventory = []
         entities.push(this)
+    }
+    define(entityId) {
+      let set = defEntities[entityId]
+      if (set.RADIUS) this.radius = set.RADIUS
+      if (set.FOV) this.fov = set.FOV
+      if (set.SPEED) this.speed = set.SPEED
+      if (set.ACCELERATION) this.acceleration = set.ACCELERATION
+      if (set.TYPE) this.type = set.TYPE
+      if (set.MASS) this.mass = set.MASS
+      if (set.BOUNCINESS) this.bounciness = set.BOUNCINESS
+      if (set.ENTRY) this.entry = set.ENTRY
+      if (set.LABEL) this.label = set.LABEL
+      if (set.MAX_HEALTH) this.maxHealth = set.MAX_HEALTH
+      if (set.HEALTH) {this.health = set.HEALTH} else {this.health = this.maxHealth}
+      if (set.HEALTH) this.health = set.HEALTH
+      if (set.DAMAGE) this.damage = set.DAMAGE
+      //if (set.PENETRATION) this.penetration = set.PENETRATION
+      //if (set.HETERO) this.hetero = set.HETERO
+      //this.truePenetration = Math.random() * this.penetration
+      if (set.REGENERATION) this.regeneration = set.REGENERATION
+      if (set.FRICTION) this.friciton = set.FRICTION
+      if (set.COLOR) this.color = set.COLOR
+      if (set.STROKE_COLOR) this.strokeColor = set.STROKE_COLOR
+      if (set.TEAM) this.team = set.TEAM
+      if (set.FACING_TYPE) this.facingType = set.FACING_TYPE
+      if (set.FACING) this.facing = set.FACING
+      if (set.SHOW_HEALTH_BAR) this.showHealthBar = set.SHOW_HEALTH_BAR
+      if (set.ALPHA) this.alpha = set.ALPHA
+      if (set.COLLIDES_WITH_TEAM) this.collidesWithTeam = set.COLLIDES_WITH_TEAM
+      if (set.ONLY_DAMAGE_ON_COLLIDE) this.onlyDamageOnCollide = set.ONLY_DAMAGE_ON_COLLIDE
+      if (set.HAND_ITEM_ID) this.handItemId = set.HAND_ITEM_ID
+      if (set.IS_PLAYER) this.isPlayer = set.IS_PLAYER
+      if (set.IS_PROJECTILE) this.isProjectile = set.IS_PROJECTILE
+      if (set.AI) this.ai = set.AI
+      if (set.IFRAMES) this.iFrames = set.IFRAMES
+      if (set.IFRAME_LENGTH) this.iFrameLength = set.IFRAME_LENGTH
+      if (set.IFRAME_FACTOR) this.iFrameFactor = set.IFRAME_FACTOR//multiplier of iframes that ennemy gets on hit
+      if (set.INVENTORY) this.inventory = set.INVENTORY
     }
     draw() {
         const screen = worldToScreen(this.x, this.y);
@@ -316,15 +379,20 @@ class Entity {
   }
   applyFriction() { this.vx *= this.friction; this.vy *= this.friction; }
   updatePosition() { this.x += this.vx; this.y += this.vy; }
-  takeDamage(amount) { 
+  takeDamage(amount, iFrameFactor = 1/* take full iframes */) { 
+    if (this.iFrames > 0) return;
+    this.iFrames = this.iFrameLength * iFrameFactor
     this.health -= amount; 
     if (this.health < 0) this.health = 0; 
     makeDamageNumber(amount, worldToScreen(this.x, this.y).x, worldToScreen(this.x, this.y).y, this);
   }
-  regen() { if (this.regeneration != 0 && !this.isDead()) { if (this.regeneration + this.health >= this.maxHealth) this.health = this.maxHealth; else this.health += this.regeneration; } }
-  isDead() {
-      return this.health <= 0;
+  kill() {
+    this.health = -1
   }
+  isDead() {
+    return this.health <= 0;
+  }
+  regen() { if (this.regeneration != 0 && !this.isDead()) { if (this.regeneration + this.health >= this.maxHealth) this.health = this.maxHealth; else this.health += this.regeneration; } }
   updateFacing() {
     switch (this.facingType) {
       case "withMotion":
@@ -340,17 +408,75 @@ class Entity {
   }
 }
 
+
+
+
+
+//ITEMS
+
+class Item {
+  constructor() {
+    //this.onUse = () => {}
+    //this.onAlt = () => {}
+    this.stats = {
+
+    }
+    this.label = "Unnamed Item"
+    this.labelColor = "#ffffff"
+    this.police = "30px Arial"
+  }
+  define(itemId) {
+    let set = defItems[itemId]
+    if (set.ON_USE) this.onUse = set.ON_USE
+    if (set.ON_ALT) this.onAlt = set.ON_ALT
+    if (set.LABEL) this.label = set.LABEL
+    if (set.LABEL_COLOR) this.labelColor = set.LABEL_COLOR
+    if (set.POLICE) this.police = set.POLICE
+  }
+  shoot(entity) {
+    if (!entity.isDead()) {//to do stats
+      // test //
+      const newEntity = new Entity(entity.x + (Math.cos(entity.facing) * entity.radius), entity.y + (Math.sin(entity.facing) * entity.radius));
+      newEntity.facing = entity.facing
+      newEntity.team = entity.team
+      newEntity.collidesWithTeam = false
+      newEntity.vx = (Math.cos(newEntity.facing) * 5)// + (player.vx * 0.4);
+      newEntity.vy = (Math.sin(newEntity.facing) * 5)// + (player.vy * 0.4);
+      newEntity.friction = 0.995
+      newEntity.regeneration = 0
+      newEntity.radius = 10
+      newEntity.damage = 1
+      newEntity.showHealthBar = false
+      newEntity.isProjectile = true
+      newEntity.range = 100
+      newEntity.mass = 2
+      entities.push(newEntity);
+      // //
+  }
+}
+}
+
+
 //PLAYER
 
-player = new Entity(0, 0)
-player.color = "#0069FF"
-player.team = 1
-player.fov = 1
-player.facingType = "player"
-player.isPlayer = true
-player.showHealthBar = true
+let player = new Entity(0, 0, "player")
+player.define("player")
 
 //
+
+function doDamage(e1, e2) {
+  if (e1.team !== e2.team) {
+    //Calculate the relative velocity between e1 and e2
+    const relVx = e2.vx - e1.vx;
+    const relVy = e2.vy - e1.vy;
+    //Calculate the magnitude of the relative velocity
+    const relativeVelocity = Math.sqrt(relVx * relVx + relVy * relVy);
+    const damageMultiplier = Math.max(Math.min(relativeVelocity / velocityDamageConst, 1.5), 0.5);
+    // Apply damage with velocity scaling
+    e1.takeDamage(Math.round(e2.damage * damageMultiplier), e2.iFrameFactor);
+    e2.takeDamage(Math.round(e1.damage * damageMultiplier), e1.iFrameFactor);
+  }
+}
 
 function handleCollision(e1, e2) {
   if (e1.isDead() || e2.isDead()) return;
@@ -358,6 +484,9 @@ function handleCollision(e1, e2) {
   const dx = e2.x - e1.x, dy = e2.y - e1.y; var dist = Math.sqrt(dx*dx + dy*dy); if (dist == 0) dist = 1;
   const minDist = e1.radius + e2.radius;
   if (dist < minDist) {
+  if (e1.onlyDamageOnCollide || e2.onlyDamageOnCollide) {
+    doDamage(e1, e2)
+  } else {
       const overlap = minDist - dist; const nx = dx / dist, ny = dy / dist;
       const totalMass = e1.mass + e2.mass;
       e1.x -= nx * overlap * (e2.mass / totalMass); e1.y -= ny * overlap * (e2.mass / totalMass);
@@ -371,53 +500,37 @@ function handleCollision(e1, e2) {
           e2.vx -= impulse * e1.mass * nx * bounce * kbmult;
           e2.vy -= impulse * e1.mass * ny * bounce * kbmult;
       }
-      if (e1.team !== e2.team) {
-        //Calculate the relative velocity between e1 and e2
-        const relVx = e2.vx - e1.vx;
-        const relVy = e2.vy - e1.vy;
-        //Calculate the magnitude of the relative velocity
-        const relativeVelocity = Math.sqrt(relVx * relVx + relVy * relVy);
-        const damageMultiplier = Math.max(Math.min(relativeVelocity / velocityDamageConst, 1.5), 0.5);
-        // Apply damage with velocity scaling
-        e1.takeDamage(Math.round(e2.damage * damageMultiplier));
-        e2.takeDamage(Math.round(e1.damage * damageMultiplier));
-    }
-    
-      
+      doDamage(e1, e2)
   }
-}
-function shoot(entity) {
-      if (!entity.isDead()) {
-        // test //
-        const newEntity = new Entity(entity.x + (Math.cos(entity.facing) * entity.radius), entity.y + (Math.sin(entity.facing) * entity.radius));
-        newEntity.facing = entity.facing
-        newEntity.team = 1
-        newEntity.collidesWithTeam = false
-        newEntity.vx = (Math.cos(newEntity.facing) * 5)// + (player.vx * 0.4);
-        newEntity.vy = (Math.sin(newEntity.facing) * 5)// + (player.vy * 0.4);
-        newEntity.friction = 0.995
-        newEntity.regeneration = -0.5
-        newEntity.radius = 10
-        newEntity.damage = 1
-        newEntity.showHealthBar = false
-        newEntity.isProjectile = true
-        newEntity.mass = 2
-        entities.push(newEntity);
-        // //
-    }
+  }
 }
 function handleMouseInput(player) {
+    let item = player.handItemId
     if (player.input.lmb) {
-      shoot(player)
-  }
+      if (player.inventory[item]) {
+        if (player.inventory[item].onUse) {
+          player.inventory[item].onUse(player.inventory[item], player, entities)//use items
+        }
+      }
+    }
+    if (player.input.rmb) {
+      if (player.inventory[item]) {
+        if (player.inventory[item].onAlt) {
+          player.inventory[item].onAlt(player.inventory[item], player, entities)
+        }
+      }
+    }
 }
 
-function drawLoadout(handItem) {
+function drawLoadout(handItemId) {
   const numItems = hotbarItems;
   const barHeight = canvas.height * 0.05;
   const itemSize = (canvas.width * 0.4) / numItems;
   const spacing = (canvas.width * 0.05) / (numItems - 1);
-
+  if (player.inventory[handItemId]) {
+    let item = player.inventory[handItemId]
+    drawText(item.label, canvas.width/2, canvas.height/7.5, item.labelColor, item.police)
+  }
   for (let i = 0; i < numItems; i++) {
       const x = (canvas.width - (itemSize * numItems + spacing * (numItems - 1))) / 2 + i * (itemSize + spacing);
       const y = (canvas.height - barHeight) / 50;
@@ -425,7 +538,7 @@ function drawLoadout(handItem) {
       ctx.fillStyle = '#2a2a2a';
       ctx.fillRect(x, y, itemSize, itemSize);
 
-      if (i === handItem) {
+      if (i === handItemId) {
           ctx.strokeStyle = '#FF4500';
           ctx.lineWidth = 4;
           ctx.strokeRect(x, y, itemSize, itemSize);
@@ -501,7 +614,7 @@ function draw() {
       drawText(Math.round(player.health/* * 100*/)/* / 100*/, (Math.min(player.maxHealth, healthCap) / 2) + 10, 40, "white")
       drawHealthBar(player.health, player.maxHealth, ctx, 10, 50, Math.min(player.maxHealth, healthCap)/* plus tu as de vie max plus la barre est grande */, 10)
     }
-    drawLoadout(player.handItem)
+    drawLoadout(player.handItemId)
 }
 
 
@@ -512,27 +625,32 @@ function gameLoop() {
     if (keys['ArrowLeft']) {player.input.left = true} else {player.input.left = false};
     if (keys['ArrowRight']) {player.input.right = true} else {player.input.right = false};
     if (player.input.scroll != undefined) {scrollTimer += Math.abs(player.input.scroll)};
+    didntTouchMouseFor += 1
+    if (didntTouchMouseFor > 100) {
+      player.input.scroll += -(positiveCheck(player.input.scroll))
+    }
     if (scrollTimer >= 100) {
       scrollTimer = 0
-      player.handItem += negativeCheck(player.input.scroll)
-      if (player.handItem >= hotbarItems) {player.handItem = 0}
-      if (player.handItem < 0) {player.handItem = hotbarItems-1}
+      player.handItemId += positiveCheck(player.input.scroll)
+      if (player.handItemId >= hotbarItems) {player.handItemId = 0}
+      if (player.handItemId < 0) {player.handItemId = hotbarItems-1}
     }
 
 
-    for (i = 0; i<hotbarItems; i++) {
-        index = transformIntIntoKey(i)
+    for (let i = 0; i<hotbarItems; i++) {
+        let index = transformIntIntoKey(i)
         if (keys[index]) {
           player.input[i] = true
           if (i == 0) {
-            player.handItem = hotbarItems-1
+            player.handItemId = hotbarItems-1
           } else {
-          player.handItem = i-1
+          player.handItemId = i-1
           }
         } else {
           player.input[i] = false
         }
     }
+
 
 
     camera.x = player.x
@@ -542,16 +660,28 @@ function gameLoop() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     draw();
     handleMouseInput(player);
-    entities.forEach(entity => {
+    entities.forEach(entity => {//entities
       entity.applyInput(); 
       entity.applyFriction(); 
       entity.updatePosition();
       entity.regen();
       entity.updateFacing();
+      if (entity.isProjectile) {
+        entity.range -= 1
+        if (entity.range <= 0) {
+          entity.kill()
+        }
+      }
+
+    if (entity.iFrames > 0) {
+      entity.iFrames -= 1
+    }
+    
     })
     for (let i = 0; i < entities.length; i++) {
       for (let j = i + 1; j < entities.length; j++) handleCollision(entities[i], entities[j]);
   }
+
   //remove dead
 
   for (let i = entities.length - 1; i >= 0; i--) {
@@ -572,8 +702,10 @@ gameLoop()
 // lets test things shall we lmao?
 
 function test() {
+  let test4 = new Entity(100, 100)
+  test4.define("ghost")
 //test entities
-  test1 = new Entity(100, 100)
+  let test1 = new Entity(100, 100)
   test1.vx = -50
   test1.vy = -50
   test1.damage = 75
@@ -581,7 +713,7 @@ function test() {
   test1.health = 90
   test1.regeneration = -0.1
 
-  test2 = new Entity(-100, -100)
+  let test2 = new Entity(-100, -100)
   test2.radius = 100
   test2.mass = 100
   test2.color = "#654321"
@@ -591,13 +723,15 @@ function test() {
   test2.regeneration = 0.5
   test2.bounciness = 0.7
 
-  test3 = new Entity(100, -100)
+  let test3 = new Entity(100, -100)
   test3.radius = 10
   test3.mass = 0.1
   test3.damage = 0
+
+  let item1 = new Item()
+  item1.define("shootTest")
+  //add to player
+  player.inventory.push(item1)
 }
 
 test() //remove this when finish testing
-
-
-
