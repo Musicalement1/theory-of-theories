@@ -255,9 +255,35 @@ function updatePlayerFacing(player, mouseX, mouseY) {
     ctx.fillRect(x - barWidth/2, y + radius + 12, barWidth * ratio, barHeight);
 }
 
+
+
+function drawImage(path, x, y, radius, facing) {
+  if (!drawImage.image) {
+      drawImage.image = new Image();
+      drawImage.image.src = path;
+      drawImage.imageLoaded = false;
+      drawImage.image.onload = function() {
+          drawImage.imageLoaded = true;
+          console.log('Loaded ' + path);
+      };
+      drawImage.image.onerror = function() {
+          console.error('Error while loading ' + path);
+      };
+  }
+  if (drawImage.imageLoaded) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(facing * Math.PI / 180);
+      ctx.drawImage(drawImage.image, -radius, -radius, radius * 2, radius * 2);
+      ctx.restore();
+  }
+}
+
+
  // ENTITY //
 
  
+
 class Entity {
     constructor(x, y/*, entityId = "ball"*/) {
         //this.entityId = entityId
@@ -299,6 +325,7 @@ class Entity {
         this.iFrameLength = 2
         this.iFrameFactor = 1
         this.inventory = []
+        this.texture = "default"
         entities.push(this)
     }
     define(entityId) {
@@ -310,7 +337,10 @@ class Entity {
       if (set.TYPE) this.type = set.TYPE
       if (set.MASS) this.mass = set.MASS
       if (set.BOUNCINESS) this.bounciness = set.BOUNCINESS
-      if (set.ENTRY) this.entry = set.ENTRY
+      if (set.ENTRY) {
+        this.entry = set.ENTRY
+        this.label = "Entity " + set.ENTRY
+      }
       if (set.LABEL) this.label = set.LABEL
       if (set.MAX_HEALTH) this.maxHealth = set.MAX_HEALTH
       if (set.HEALTH) {this.health = set.HEALTH} else {this.health = this.maxHealth}
@@ -338,6 +368,7 @@ class Entity {
       if (set.IFRAME_LENGTH) this.iFrameLength = set.IFRAME_LENGTH
       if (set.IFRAME_FACTOR) this.iFrameFactor = set.IFRAME_FACTOR//multiplier of iframes that ennemy gets on hit
       if (set.INVENTORY) this.inventory = set.INVENTORY
+      if (set.TEXTURE) this.texture = set.TEXTURE
     }
     draw() {
         const screen = worldToScreen(this.x, this.y);
@@ -346,6 +377,7 @@ class Entity {
         if (this.showHealthBar && !this.isPlayer) {
           drawHealthBarForEntities(screen.x, screen.y, this.health, this.maxHealth, this.radius)
         }
+        if (this.texture == "default") {
         ctx.beginPath();
         ctx.arc(screen.x, screen.y, radius, 0, Math.PI * 2);
         ctx.fillStyle = this.color
@@ -361,6 +393,10 @@ class Entity {
         ctx.strokeStyle = this.strokeColor;
         ctx.stroke();
         ctx.restore();
+        } else {
+          drawImage('assets/entities/' + this.texture, screen.x, screen.y, radius, this.facing)
+        }
+
         //mouse on entities
         if (distance(screen, mouse) <= radius && !this.isPlayer &!this.isProjectile) {
           ctx.save();
@@ -403,6 +439,9 @@ class Entity {
       case "player":
         updatePlayerFacing(player, screenToWorld(mouse.x, mouse.y).x, screenToWorld(mouse.x, mouse.y).y)
       break;
+      case "autospin":
+        this.facing += 0.4
+      break;
       default:
     }
   }
@@ -424,6 +463,7 @@ class Item {
     this.label = "Unnamed Item"
     this.labelColor = "#ffffff"
     this.police = "30px Arial"
+    this.texture = "defaults"
   }
   define(itemId) {
     let set = defItems[itemId]
@@ -432,6 +472,7 @@ class Item {
     if (set.LABEL) this.label = set.LABEL
     if (set.LABEL_COLOR) this.labelColor = set.LABEL_COLOR
     if (set.POLICE) this.police = set.POLICE
+    if (set.TEXTURE) this.texture = set.TEXTURE
   }
   shoot(entity) {
     if (!entity.isDead()) {//to do stats
@@ -453,7 +494,10 @@ class Item {
       entities.push(newEntity);
       // //
   }
-}
+  }
+  /*draw() {
+    drawImage('assets/items/' + this.texture, 0, 0, 100, 0)//screen.x, screen.y, radius, this.facing)
+  }*/
 }
 
 
@@ -727,6 +771,10 @@ function test() {
   test3.radius = 10
   test3.mass = 0.1
   test3.damage = 0
+
+  let test5 = new Entity(200, -200)
+  test4.radius = 10
+  test5.define("lunaria")
 
   let item1 = new Item()
   item1.define("shootTest")

@@ -31,11 +31,19 @@ defEntities.ghost = {
     DAMAGE: 2
 }
 
+defEntities.lunaria = {
+    TEXTURE: "lunaria.jpg",
+    FACING_TYPE: "autospin",
+    RADIUS: 100,
+    ENTRY: "104"
+}
+
 //  ITEMS  //
 
 defItems.shootTest = {
     LABEL: "Shoot Test",
     LABEL_COLOR: "#123456",
+    TEXTURE: "lunaria_item.jpg",
     ON_USE: (me, player) => {
         console.log("I Got Used")
         me.shoot(player)
