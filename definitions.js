@@ -32,7 +32,7 @@ defEntities.ghost = {
 }
 
 defEntities.lunaria = {
-    TEXTURE: "lunaria.jpg",
+    TEXTURE: "lunaria.png",
     FACING_TYPE: "autospin",
     RADIUS: 100,
     ENTRY: "104"
@@ -43,7 +43,7 @@ defEntities.lunaria = {
 defItems.shootTest = {
     LABEL: "Shoot Test",
     LABEL_COLOR: "#123456",
-    TEXTURE: "lunaria_item.jpg",
+    TEXTURE: "lunaria_item.png",
     ON_USE: (me, player) => {
         console.log("I Got Used")
         me.shoot(player)
