@@ -1,4 +1,5 @@
 import {defEntities, defItems} from './definitions.js'
+import {worldData} from './world.js'
 
 // CANVAS STUFF //
 const canvas = document.getElementById('canvas');
@@ -782,10 +783,6 @@ function gameLoop() {
 gameLoop()
 
 
-
-
-// lets test things shall we lmao?
-
 function test() {
   let test4 = new Entity(100, 100)
   test4.define("ghost")
@@ -823,4 +820,18 @@ function test() {
   player.inventory.push(item1)
 }
 
-test() //remove this when finish testing
+//test()
+
+
+function loadLevel(id) {
+  let level = worldData[id]
+  console.log("Loading " + level.name + " id: " + id)
+
+  for (let i = 0; i<level.entities.length; i++) {
+    let edata = level.entities[i]
+    let entity = new Entity(edata.x, edata.y)
+    entity.define(edata.type)
+  }
+
+}
+loadLevel(0)
