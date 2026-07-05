@@ -257,24 +257,45 @@ function updatePlayerFacing(player, mouseX, mouseY) {
 
 
 
-function drawImage(path, x, y, radius, facing) {
-  if (!drawImage.image) {
-      drawImage.image = new Image();
-      drawImage.image.src = path;
-      drawImage.imageLoaded = false;
-      drawImage.image.onload = function() {
-          drawImage.imageLoaded = true;
-          console.log('Loaded ' + path);
-      };
-      drawImage.image.onerror = function() {
-          console.error('Error while loading ' + path);
-      };
+function drawImage(path, x, y, radius, facing = 0) {
+  //cache
+  if (!drawImage.images) {
+      drawImage.images = {};
   }
-  if (drawImage.imageLoaded) {
+//pas connu = charge
+  if (!drawImage.images[path]) {
+      const img = new Image();
+
+      drawImage.images[path] = {
+          img: img,
+          loaded: false
+      };
+
+      img.onload = () => {
+          drawImage.images[path].loaded = true;
+          console.log("Loaded " + path);
+      };
+
+      img.onerror = () => {
+          console.error("Error while loading " + path);
+      };
+
+      img.src = path;
+  }
+
+  const texture = drawImage.images[path];
+
+  if (texture.loaded) {
       ctx.save();
       ctx.translate(x, y);
       ctx.rotate(facing * Math.PI / 180);
-      ctx.drawImage(drawImage.image, -radius, -radius, radius * 2, radius * 2);
+      ctx.drawImage(
+          texture.img,
+          -radius,
+          -radius,
+          radius * 2,
+          radius * 2
+      );
       ctx.restore();
   }
 }
@@ -571,19 +592,39 @@ function drawLoadout(handItemId) {
   const barHeight = canvas.height * 0.05;
   const itemSize = (canvas.width * 0.4) / numItems;
   const spacing = (canvas.width * 0.05) / (numItems - 1);
+
   if (player.inventory[handItemId]) {
-    let item = player.inventory[handItemId]
-    drawText(item.label, canvas.width/2, canvas.height/7.5, item.labelColor, item.police)
+      const item = player.inventory[handItemId];
+      drawText(
+          item.label,
+          canvas.width / 2,
+          canvas.height / 7.5,
+          item.labelColor,
+          item.police
+      );
   }
+
   for (let i = 0; i < numItems; i++) {
       const x = (canvas.width - (itemSize * numItems + spacing * (numItems - 1))) / 2 + i * (itemSize + spacing);
       const y = (canvas.height - barHeight) / 50;
 
-      ctx.fillStyle = '#2a2a2a';
+      ctx.fillStyle = "#2a2a2a";
       ctx.fillRect(x, y, itemSize, itemSize);
 
+      const item = player.inventory[i];
+
+      if (item) {
+          drawImage(
+              "assets/items/" + item.texture,
+              x + itemSize / 2,
+              y + itemSize / 2,
+              itemSize * 0.4,
+              0
+          );
+      }
+
       if (i === handItemId) {
-          ctx.strokeStyle = '#FF4500';
+          ctx.strokeStyle = "#FF4500";
           ctx.lineWidth = 4;
           ctx.strokeRect(x, y, itemSize, itemSize);
       }
